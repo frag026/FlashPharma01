@@ -2,8 +2,8 @@ class AppConstants {
   AppConstants._();
 
   // Supabase
-  static const String supabaseUrl = 'YOUR_SUPABASE_URL';
-  static const String supabaseAnonKey = 'YOUR_SUPABASE_ANON_KEY';
+  static const String supabaseUrl = 'https://pvcqbdkmzlztosjvtmhx.supabase.co';
+  static const String supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB2Y3FiZGttemx6dG9zanZ0bWh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzMjY1ODUsImV4cCI6MjA4ODkwMjU4NX0.16CD46UbMOl4j7DFFYHM35DfOUpsc3YIY0wWWIniS3s';
 
   // Google Sign-In — web client ID from Google Cloud Console
   static const String googleWebClientId = 'YOUR_GOOGLE_WEB_CLIENT_ID';

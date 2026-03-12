@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/pharmacy.dart';
 import '../../services/location_service.dart';
