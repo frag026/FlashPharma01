@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/pharmacy.dart';
-import '../../services/pharmacy_service.dart';
 import '../../services/location_service.dart';
 
 class PharmacyMapScreen extends StatefulWidget {
@@ -12,30 +14,74 @@ class PharmacyMapScreen extends StatefulWidget {
 }
 
 class _PharmacyMapScreenState extends State<PharmacyMapScreen> {
-  final PharmacyService _pharmacyService = PharmacyService();
   final LocationService _locationService = LocationService();
+  final MapController _mapController = MapController();
   List<Pharmacy> _pharmacies = [];
   bool _isLoading = true;
   Pharmacy? _selectedPharmacy;
+  LatLng _userLocation = const LatLng(19.0760, 72.8777); // Default: Mumbai
 
   @override
   void initState() {
     super.initState();
-    _loadPharmacies();
+    _loadData();
   }
 
-  Future<void> _loadPharmacies() async {
+  Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
       final pos = await _locationService.getCurrentLocation();
       if (pos != null) {
-        _pharmacies = await _pharmacyService.getNearbyPharmacies(
-          latitude: pos.latitude,
-          longitude: pos.longitude,
-        );
+        _userLocation = LatLng(pos.latitude, pos.longitude);
       }
     } catch (_) {}
+
+    // Demo pharmacies near user location
+    _pharmacies = _generateDemoPharmacies(_userLocation);
+
     if (mounted) setState(() => _isLoading = false);
+  }
+
+  List<Pharmacy> _generateDemoPharmacies(LatLng center) {
+    final offsets = [
+      [0.005, 0.003, 'MedPlus Pharmacy', '4.5', true, 0.4],
+      [-0.003, 0.006, 'Apollo Pharmacy', '4.2', true, 0.7],
+      [0.007, -0.004, 'Wellness Forever', '4.7', true, 0.8],
+      [-0.006, -0.005, 'Netmeds Store', '3.9', false, 1.1],
+      [0.002, -0.008, 'PharmEasy Hub', '4.1', true, 0.9],
+      [-0.008, 0.002, 'HealthKart Pharmacy', '4.3', true, 1.3],
+    ];
+
+    return offsets.asMap().entries.map((entry) {
+      final i = entry.key;
+      final o = entry.value;
+      return Pharmacy(
+        id: 'demo_$i',
+        name: o[2] as String,
+        ownerName: 'Owner $i',
+        email: 'pharmacy$i@demo.com',
+        phone: '+91 98765 ${43210 + i}',
+        address: '${i + 1}, Demo Street, Near Main Road',
+        latitude: center.latitude + (o[0] as double),
+        longitude: center.longitude + (o[1] as double),
+        licenseNumber: 'LIC-DEMO-$i',
+        rating: double.parse(o[3] as String),
+        isOpen: o[4] as bool,
+        distance: o[5] as double,
+      );
+    }).toList();
+  }
+
+  void _centerOnUser() {
+    _mapController.move(_userLocation, 15.0);
+  }
+
+  void _selectPharmacy(Pharmacy pharmacy) {
+    setState(() => _selectedPharmacy = pharmacy);
+    _mapController.move(
+      LatLng(pharmacy.latitude, pharmacy.longitude),
+      16.0,
+    );
   }
 
   @override
@@ -56,47 +102,93 @@ class _PharmacyMapScreenState extends State<PharmacyMapScreen> {
       ),
       body: Stack(
         children: [
-          // Map placeholder (Mapbox integration)
-          Container(
-            color: AppTheme.bgLight,
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.map_rounded,
-                          size: 80,
-                          color: AppTheme.primaryGreen.withValues(alpha: 0.3),
-                        ),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'Map View',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${_pharmacies.length} pharmacies nearby',
-                          style: const TextStyle(color: AppTheme.textHint),
-                        ),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'Mapbox map integration goes here.\nPharmacy markers will be displayed on the map.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: AppTheme.textHint,
+          // Real Map
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(
+                    initialCenter: _userLocation,
+                    initialZoom: 14.0,
+                    onTap: (_, __) {
+                      setState(() => _selectedPharmacy = null);
+                    },
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate:
+                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.example.flash_pharma',
+                      maxZoom: 19,
+                    ),
+                    // User location marker
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: _userLocation,
+                          width: 30,
+                          height: 30,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.blue,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 3),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.blue.withValues(alpha: 0.3),
+                                  blurRadius: 8,
+                                  spreadRadius: 2,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ],
                     ),
-                  ),
-          ),
+                    // Pharmacy markers
+                    MarkerLayer(
+                      markers: _pharmacies.map((pharmacy) {
+                        final isSelected = _selectedPharmacy == pharmacy;
+                        return Marker(
+                          point: LatLng(pharmacy.latitude, pharmacy.longitude),
+                          width: isSelected ? 50 : 40,
+                          height: isSelected ? 50 : 40,
+                          child: GestureDetector(
+                            onTap: () => _selectPharmacy(pharmacy),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? AppTheme.primaryGreen
+                                    : pharmacy.isOpen
+                                        ? Colors.white
+                                        : Colors.grey[300],
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: AppTheme.primaryGreen,
+                                  width: isSelected ? 3 : 2,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.2),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Icon(
+                                Icons.local_pharmacy_rounded,
+                                color: isSelected
+                                    ? Colors.white
+                                    : AppTheme.primaryGreen,
+                                size: isSelected ? 24 : 20,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
 
           // Bottom pharmacy cards
           if (_pharmacies.isNotEmpty && !_isLoading)
@@ -130,7 +222,7 @@ class _PharmacyMapScreenState extends State<PharmacyMapScreen> {
             bottom: 200,
             child: FloatingActionButton.small(
               heroTag: 'recenter',
-              onPressed: _loadPharmacies,
+              onPressed: _centerOnUser,
               backgroundColor: Colors.white,
               child: const Icon(Icons.my_location_rounded,
                   color: AppTheme.primaryGreen),
