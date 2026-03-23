@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:pinput/pinput.dart';
 import 'package:provider/provider.dart';
@@ -8,8 +9,9 @@ import '../../providers/auth_provider.dart';
 
 class VerifyOtpScreen extends StatefulWidget {
   final String phone;
+  final String? name;
 
-  const VerifyOtpScreen({super.key, required this.phone});
+  const VerifyOtpScreen({super.key, required this.phone, this.name});
 
   @override
   State<VerifyOtpScreen> createState() => _VerifyOtpScreenState();
@@ -17,9 +19,30 @@ class VerifyOtpScreen extends StatefulWidget {
 
 class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
   final _otpController = TextEditingController();
+  Timer? _timer;
+  int _countdown = 60;
+
+  @override
+  void initState() {
+    super.initState();
+    _startTimer();
+  }
+
+  void _startTimer() {
+    setState(() => _countdown = 60);
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_countdown > 0) {
+        setState(() => _countdown--);
+      } else {
+        timer.cancel();
+      }
+    });
+  }
 
   @override
   void dispose() {
+    _timer?.cancel();
     _otpController.dispose();
     super.dispose();
   }
@@ -41,6 +64,11 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
 
     if (!mounted || !success) return;
 
+    if (widget.name != null && widget.name!.isNotEmpty) {
+      await authProvider.updateProfile({'name': widget.name});
+      if (!mounted) return;
+    }
+
     final role = authProvider.role;
     if (role == AppConstants.rolePharmacy) {
       Navigator.pushNamedAndRemoveUntil(context, '/pharmacy-home', (_) => false);
@@ -50,9 +78,15 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
   }
 
   Future<void> _handleResendOtp() async {
+    if (_countdown > 0) return;
+
     final authProvider = context.read<AuthProvider>();
     final success = await authProvider.sendOtp(phone: widget.phone);
     if (!mounted) return;
+
+    if (success) {
+      _startTimer();
+    }
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -151,8 +185,13 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
               ),
               const SizedBox(height: 12),
               TextButton(
-                onPressed: _handleResendOtp,
-                child: const Text('Resend OTP'),
+                onPressed: _countdown > 0 ? null : _handleResendOtp,
+                child: Text(
+                  _countdown > 0 ? 'Resend OTP in ${_countdown}s' : 'Resend OTP',
+                  style: TextStyle(
+                    color: _countdown > 0 ? AppTheme.textSecondary : AppTheme.primaryGreen,
+                  ),
+                ),
               ),
             ],
           ),

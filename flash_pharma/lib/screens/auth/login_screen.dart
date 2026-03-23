@@ -13,13 +13,10 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _phoneController = TextEditingController();
-  final _passwordController = TextEditingController();
-  bool _obscurePassword = true;
 
   @override
   void dispose() {
     _phoneController.dispose();
-    _passwordController.dispose();
     super.dispose();
   }
 
@@ -27,18 +24,16 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final authProvider = context.read<AuthProvider>();
-    final success = await authProvider.login(
+    final success = await authProvider.sendOtp(
       phone: _phoneController.text.trim(),
-      password: _passwordController.text,
     );
 
     if (success && mounted) {
-      final role = authProvider.role;
-      if (role == 'pharmacy') {
-        Navigator.pushReplacementNamed(context, '/pharmacy-home');
-      } else {
-        Navigator.pushReplacementNamed(context, '/home');
-      }
+      Navigator.pushNamed(
+        context,
+        '/verify-otp',
+        arguments: _phoneController.text.trim(),
+      );
     }
   }
 
@@ -79,7 +74,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Sign in to your Flash Pharma pharmacy account',
+                  'Sign in to your Flash Pharma account',
                   style: TextStyle(
                     fontSize: 15,
                     color: AppTheme.textSecondary,
@@ -90,7 +85,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 TextFormField(
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
-                  textInputAction: TextInputAction.next,
+                  textInputAction: TextInputAction.done,
                   decoration: const InputDecoration(
                     labelText: 'Phone Number',
                     hintText: 'Enter your phone number',
@@ -103,37 +98,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     }
                     if (value.length < 10) {
                       return 'Please enter a valid phone number';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                // Password
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: _obscurePassword,
-                  textInputAction: TextInputAction.done,
-                  decoration: InputDecoration(
-                    labelText: 'Password',
-                    hintText: 'Enter your password',
-                    prefixIcon: const Icon(Icons.lock_outlined),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
-                      ),
-                      onPressed: () {
-                        setState(() => _obscurePassword = !_obscurePassword);
-                      },
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your password';
-                    }
-                    if (value.length < 6) {
-                      return 'Password must be at least 6 characters';
                     }
                     return null;
                   },
@@ -187,30 +151,30 @@ class _LoginScreenState extends State<LoginScreen> {
                                   strokeWidth: 2,
                                 ),
                               )
-                            : const Text('Sign In'),
+                            : const Text('Send OTP'),
                       ),
                     );
                   },
                 ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 56,
-                  child: OutlinedButton(
-                    onPressed: () {
-                      Navigator.pushNamed(context, '/send-otp');
-                    },
-                    child: const Text('Sign In with OTP'),
-                  ),
-                ),
                 const SizedBox(height: 24),
-                // Register Button
-                SizedBox(
-                  height: 56,
-                  child: OutlinedButton(
-                    onPressed: () {
-                      Navigator.pushNamed(context, '/signup');
-                    },
-                    child: const Text('Create Pharmacy Account'),
+                Center(
+                  child: TextButton(
+                    onPressed: () => Navigator.pushNamed(context, '/register'),
+                    child: const Text.rich(
+                      TextSpan(
+                        text: 'Don\'t have an account? ',
+                        style: TextStyle(color: AppTheme.textSecondary),
+                        children: [
+                          TextSpan(
+                            text: 'Sign Up',
+                            style: TextStyle(
+                              color: AppTheme.primaryGreen,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ],

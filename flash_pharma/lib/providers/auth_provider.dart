@@ -145,6 +145,23 @@ class AuthProvider extends ChangeNotifier {
     } catch (_) {}
   }
 
+  Future<bool> updateProfile(Map<String, dynamic> data) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      _user = await _authService.updateProfile(data);
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = _parseError(e);
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<void> logout() async {
     await _authService.logout();
     _user = null;
@@ -157,12 +174,13 @@ class AuthProvider extends ChangeNotifier {
   }
 
   String _parseError(dynamic e) {
+    debugPrint('Auth Error: $e');
     if (e.toString().contains('401')) return 'Invalid phone number or password';
     if (e.toString().contains('invalid') && e.toString().contains('otp')) {
       return 'Invalid OTP. Please try again.';
     }
     if (e.toString().contains('409')) return 'Account already exists';
     if (e.toString().contains('SocketException')) return 'No internet connection';
-    return 'Something went wrong. Please try again.';
+    return e.toString(); // Show actual error for debugging
   }
 }

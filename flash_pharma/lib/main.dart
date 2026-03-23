@@ -87,8 +87,16 @@ class FlashPharmaApp extends StatelessWidget {
       case '/send-otp':
         return _slide(const SendOtpScreen());
       case '/verify-otp':
-        final phone = settings.arguments as String;
-        return _slide(VerifyOtpScreen(phone: phone));
+        final args = settings.arguments;
+        String phone = '';
+        String? name;
+        if (args is String) {
+          phone = args;
+        } else if (args is Map) {
+          phone = args['phone'] as String;
+          name = args['name'] as String?;
+        }
+        return _slide(VerifyOtpScreen(phone: phone, name: name));
 
       // Patient
       case '/home':

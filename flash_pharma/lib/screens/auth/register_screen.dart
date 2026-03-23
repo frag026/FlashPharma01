@@ -14,18 +14,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
-  bool _obscurePassword = true;
-  bool _obscureConfirm = true;
   bool _agreeTerms = false;
 
   @override
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
-    _passwordController.dispose();
-    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -39,14 +33,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     final authProvider = context.read<AuthProvider>();
-    final success = await authProvider.registerPatient(
-      name: _nameController.text.trim(),
+    final success = await authProvider.sendOtp(
       phone: _phoneController.text.trim(),
-      password: _passwordController.text,
     );
 
     if (success && mounted) {
-      Navigator.pushReplacementNamed(context, '/home');
+      Navigator.pushNamed(
+        context,
+        '/verify-otp',
+        arguments: {
+          'phone': _phoneController.text.trim(),
+          'name': _nameController.text.trim(),
+        },
+      );
     }
   }
 
@@ -106,7 +105,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 TextFormField(
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
-                  textInputAction: TextInputAction.next,
+                  textInputAction: TextInputAction.done,
                   decoration: const InputDecoration(
                     labelText: 'Phone Number',
                     hintText: 'Enter your phone number',
@@ -119,65 +118,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     }
                     if (value.length < 10) {
                       return 'Please enter a valid phone number';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                // Password
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: _obscurePassword,
-                  textInputAction: TextInputAction.next,
-                  decoration: InputDecoration(
-                    labelText: 'Password',
-                    hintText: 'Create a password',
-                    prefixIcon: const Icon(Icons.lock_outlined),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
-                      ),
-                      onPressed: () {
-                        setState(() => _obscurePassword = !_obscurePassword);
-                      },
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a password';
-                    }
-                    if (value.length < 8) {
-                      return 'Password must be at least 8 characters';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                // Confirm Password
-                TextFormField(
-                  controller: _confirmPasswordController,
-                  obscureText: _obscureConfirm,
-                  textInputAction: TextInputAction.done,
-                  decoration: InputDecoration(
-                    labelText: 'Confirm Password',
-                    hintText: 'Re-enter your password',
-                    prefixIcon: const Icon(Icons.lock_outlined),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscureConfirm
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
-                      ),
-                      onPressed: () {
-                        setState(() => _obscureConfirm = !_obscureConfirm);
-                      },
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value != _passwordController.text) {
-                      return 'Passwords do not match';
                     }
                     return null;
                   },
@@ -258,7 +198,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   strokeWidth: 2,
                                 ),
                               )
-                            : const Text('Create Account'),
+                            : const Text('Send OTP'),
                       ),
                     );
                   },
@@ -292,3 +232,4 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 }
+
