@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/app_theme.dart';
-import '../../models/search_result.dart';
-import '../../services/search_service.dart';
-import '../../services/location_service.dart';
+import '../core/theme/app_theme.dart';
+import '../models/search_result.dart';
+import '../services/search_service.dart';
+import '../services/location_service.dart';
 
 class MedicineSearchDelegate extends SearchDelegate<String> {
   final SearchService _searchService = SearchService();

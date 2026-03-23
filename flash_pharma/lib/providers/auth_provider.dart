@@ -27,12 +27,12 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> login({required String email, required String password}) async {
+  Future<bool> login({required String phone, required String password}) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
     try {
-      _user = await _authService.login(email: email, password: password);
+      _user = await _authService.login(phone: phone, password: password);
       _isLoading = false;
       notifyListeners();
       return true;
@@ -46,7 +46,6 @@ class AuthProvider extends ChangeNotifier {
 
   Future<bool> registerPatient({
     required String name,
-    required String email,
     required String phone,
     required String password,
   }) async {
@@ -56,7 +55,6 @@ class AuthProvider extends ChangeNotifier {
     try {
       _user = await _authService.registerPatient(
         name: name,
-        email: email,
         phone: phone,
         password: password,
       );
@@ -74,7 +72,6 @@ class AuthProvider extends ChangeNotifier {
   Future<bool> registerPharmacy({
     required String name,
     required String ownerName,
-    required String email,
     required String phone,
     required String password,
     required String licenseNumber,
@@ -89,7 +86,6 @@ class AuthProvider extends ChangeNotifier {
       _user = await _authService.registerPharmacy(
         name: name,
         ownerName: ownerName,
-        email: email,
         phone: phone,
         password: password,
         licenseNumber: licenseNumber,
@@ -108,19 +104,34 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> signInWithGoogle() async {
+  Future<bool> sendOtp({required String phone}) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
     try {
-      _user = await _authService.signInWithGoogle();
+      await _authService.sendOtp(phone: phone);
       _isLoading = false;
       notifyListeners();
       return true;
     } catch (e) {
-      _error = e.toString().contains('cancelled')
-          ? null
-          : 'Google sign-in failed. Please try again.';
+      _error = _parseError(e);
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> verifyOtp({required String phone, required String otp}) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      _user = await _authService.verifyOtp(phone: phone, otp: otp);
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = _parseError(e);
       _isLoading = false;
       notifyListeners();
       return false;
@@ -146,7 +157,10 @@ class AuthProvider extends ChangeNotifier {
   }
 
   String _parseError(dynamic e) {
-    if (e.toString().contains('401')) return 'Invalid email or password';
+    if (e.toString().contains('401')) return 'Invalid phone number or password';
+    if (e.toString().contains('invalid') && e.toString().contains('otp')) {
+      return 'Invalid OTP. Please try again.';
+    }
     if (e.toString().contains('409')) return 'Account already exists';
     if (e.toString().contains('SocketException')) return 'No internet connection';
     return 'Something went wrong. Please try again.';

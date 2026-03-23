@@ -48,7 +48,6 @@ dependencies:
   timeago: ^3.6.1
   # Auth
   supabase_flutter: ^2.8.0
-  google_sign_in: ^6.2.1
 
 dev_dependencies:
   flutter_test:

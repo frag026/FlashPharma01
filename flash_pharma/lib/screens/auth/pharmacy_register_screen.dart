@@ -15,7 +15,6 @@ class _PharmacyRegisterScreenState extends State<PharmacyRegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _pharmacyNameController = TextEditingController();
   final _ownerNameController = TextEditingController();
-  final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _licenseController = TextEditingController();
@@ -29,7 +28,6 @@ class _PharmacyRegisterScreenState extends State<PharmacyRegisterScreen> {
   void dispose() {
     _pharmacyNameController.dispose();
     _ownerNameController.dispose();
-    _emailController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
     _licenseController.dispose();
@@ -70,7 +68,6 @@ class _PharmacyRegisterScreenState extends State<PharmacyRegisterScreen> {
     final success = await authProvider.registerPharmacy(
       name: _pharmacyNameController.text.trim(),
       ownerName: _ownerNameController.text.trim(),
-      email: _emailController.text.trim(),
       phone: _phoneController.text.trim(),
       password: _passwordController.text,
       licenseNumber: _licenseController.text.trim(),
@@ -159,22 +156,6 @@ class _PharmacyRegisterScreenState extends State<PharmacyRegisterScreen> {
                   ),
                   validator: (v) =>
                       v == null || v.trim().isEmpty ? 'Required' : null,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    prefixIcon: Icon(Icons.email_outlined),
-                  ),
-                  validator: (v) {
-                    if (v == null || v.isEmpty) return 'Required';
-                    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(v)) {
-                      return 'Invalid email';
-                    }
-                    return null;
-                  },
                 ),
                 const SizedBox(height: 16),
                 TextFormField(

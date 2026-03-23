@@ -12,6 +12,9 @@ import 'providers/cart_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
 import 'screens/auth/pharmacy_register_screen.dart';
+import 'screens/auth/signup_screen.dart';
+import 'screens/auth/send_otp_screen.dart';
+import 'screens/auth/verify_otp_screen.dart';
 
 // Patient screens
 import 'screens/patient/home_screen.dart';
@@ -77,8 +80,15 @@ class FlashPharmaApp extends StatelessWidget {
         return _slide(const LoginScreen());
       case '/register':
         return _slide(const RegisterScreen());
+      case '/signup':
+        return _slide(const SignupScreen());
       case '/pharmacy-register':
         return _slide(const PharmacyRegisterScreen());
+      case '/send-otp':
+        return _slide(const SendOtpScreen());
+      case '/verify-otp':
+        final phone = settings.arguments as String;
+        return _slide(VerifyOtpScreen(phone: phone));
 
       // Patient
       case '/home':

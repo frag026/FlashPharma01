@@ -1,7 +1,5 @@
 import 'dart:convert';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
-import '../core/constants/app_constants.dart';
 import '../models/user.dart';
 import 'storage_service.dart';
 
@@ -9,10 +7,25 @@ class AuthService {
   final StorageService _storage = StorageService();
   final SupabaseClient _supabase = Supabase.instance.client;
 
+  String _normalizePhone(String phone) {
+    final digits = phone.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length == 10) return '+91$digits';
+    if (digits.length > 10) return '+$digits';
+    return phone.startsWith('+') ? phone : '+$digits';
+  }
+
+  String _pseudoEmailFromPhone(String phone) {
+    final normalized = _normalizePhone(phone).replaceAll('+', '');
+    return '$normalized@phone.flashpharma.local';
+  }
+
   // Login
-  Future<User> login({required String email, required String password}) async {
+  Future<User> login({required String phone, required String password}) async {
+    final normalizedPhone = _normalizePhone(phone);
+    final pseudoEmail = _pseudoEmailFromPhone(normalizedPhone);
+
     final response = await _supabase.auth.signInWithPassword(
-      email: email,
+      email: pseudoEmail,
       password: password,
     );
 
@@ -34,19 +47,44 @@ class AuthService {
     return user;
   }
 
+  // Send OTP for phone auth
+  Future<void> sendOtp({required String phone}) async {
+    final normalizedPhone = _normalizePhone(phone);
+    await _supabase.auth.signInWithOtp(phone: normalizedPhone);
+  }
+
+  Future<User> _loadAndCacheUserFromAuthUserId(String userId) async {
+    final profile = await _supabase
+        .from('profiles')
+        .select()
+        .eq('id', userId)
+        .single();
+
+    final user = User.fromJson(profile);
+    final session = _supabase.auth.currentSession;
+
+    await _storage.saveToken(session?.accessToken ?? '');
+    await _storage.saveRefreshToken(session?.refreshToken ?? '');
+    await _storage.saveRole(user.role);
+    await _storage.saveUserData(jsonEncode(user.toJson()));
+    return user;
+  }
+
   // Register Patient
   Future<User> registerPatient({
     required String name,
-    required String email,
     required String phone,
     required String password,
   }) async {
+    final normalizedPhone = _normalizePhone(phone);
+    final pseudoEmail = _pseudoEmailFromPhone(normalizedPhone);
+
     final response = await _supabase.auth.signUp(
-      email: email,
+      email: pseudoEmail,
       password: password,
       data: {
         'name': name,
-        'phone': phone,
+        'phone': normalizedPhone,
         'role': 'patient',
       },
     );
@@ -60,15 +98,16 @@ class AuthService {
     // Update profile with extra fields
     await _supabase.from('profiles').update({
       'name': name,
-      'phone': phone,
+      'phone': normalizedPhone,
+      'email': pseudoEmail,
       'role': 'patient',
     }).eq('id', supaUser.id);
 
     final user = User(
       id: supaUser.id,
       name: name,
-      email: email,
-      phone: phone,
+      email: pseudoEmail,
+      phone: normalizedPhone,
       role: 'patient',
       createdAt: DateTime.now(),
     );
@@ -84,7 +123,6 @@ class AuthService {
   Future<User> registerPharmacy({
     required String name,
     required String ownerName,
-    required String email,
     required String phone,
     required String password,
     required String licenseNumber,
@@ -92,12 +130,15 @@ class AuthService {
     required double latitude,
     required double longitude,
   }) async {
+    final normalizedPhone = _normalizePhone(phone);
+    final pseudoEmail = _pseudoEmailFromPhone(normalizedPhone);
+
     final response = await _supabase.auth.signUp(
-      email: email,
+      email: pseudoEmail,
       password: password,
       data: {
         'name': name,
-        'phone': phone,
+        'phone': normalizedPhone,
         'role': 'pharmacy',
       },
     );
@@ -111,7 +152,8 @@ class AuthService {
     // Update profile
     await _supabase.from('profiles').update({
       'name': name,
-      'phone': phone,
+      'phone': normalizedPhone,
+      'email': pseudoEmail,
       'role': 'pharmacy',
       'address': address,
       'latitude': latitude,
@@ -123,8 +165,8 @@ class AuthService {
       'owner_id': supaUser.id,
       'name': name,
       'owner_name': ownerName,
-      'email': email,
-      'phone': phone,
+      'email': pseudoEmail,
+      'phone': normalizedPhone,
       'license_number': licenseNumber,
       'address': address,
       'latitude': latitude,
@@ -134,71 +176,12 @@ class AuthService {
     final user = User(
       id: supaUser.id,
       name: name,
-      email: email,
-      phone: phone,
+      email: pseudoEmail,
+      phone: normalizedPhone,
       role: 'pharmacy',
       address: address,
       latitude: latitude,
       longitude: longitude,
-      createdAt: DateTime.now(),
-    );
-
-    await _storage.saveToken(response.session?.accessToken ?? '');
-    await _storage.saveRefreshToken(response.session?.refreshToken ?? '');
-    await _storage.saveRole(user.role);
-    await _storage.saveUserData(jsonEncode(user.toJson()));
-    return user;
-  }
-
-  // Sign in with Google via Supabase
-  Future<User> signInWithGoogle() async {
-    final googleSignIn = GoogleSignIn(
-      serverClientId: AppConstants.googleWebClientId,
-    );
-
-    final googleUser = await googleSignIn.signIn();
-    if (googleUser == null) throw Exception('Google sign-in cancelled');
-
-    final googleAuth = await googleUser.authentication;
-    final idToken = googleAuth.idToken;
-    final accessToken = googleAuth.accessToken;
-
-    if (idToken == null) throw Exception('No ID token from Google');
-
-    final response = await _supabase.auth.signInWithIdToken(
-      provider: OAuthProvider.google,
-      idToken: idToken,
-      accessToken: accessToken,
-    );
-
-    final supabaseUser = response.user;
-    if (supabaseUser == null) throw Exception('Supabase sign-in failed');
-
-    // The trigger auto-creates the profile; update with Google info
-    await _supabase.from('profiles').upsert({
-      'id': supabaseUser.id,
-      'name': supabaseUser.userMetadata?['full_name'] ??
-          supabaseUser.userMetadata?['name'] ??
-          googleUser.displayName ??
-          'User',
-      'email': supabaseUser.email ?? googleUser.email,
-      'phone': supabaseUser.phone ?? '',
-      'role': 'patient',
-      'avatar_url': supabaseUser.userMetadata?['avatar_url'] ??
-          googleUser.photoUrl,
-    });
-
-    final user = User(
-      id: supabaseUser.id,
-      name: supabaseUser.userMetadata?['full_name'] as String? ??
-          supabaseUser.userMetadata?['name'] as String? ??
-          googleUser.displayName ??
-          'User',
-      email: supabaseUser.email ?? googleUser.email,
-      phone: supabaseUser.phone ?? '',
-      role: 'patient',
-      avatarUrl: supabaseUser.userMetadata?['avatar_url'] as String? ??
-          googleUser.photoUrl,
       createdAt: DateTime.now(),
     );
 
@@ -269,12 +252,19 @@ class AuthService {
     await _supabase.auth.resetPasswordForEmail(email);
   }
 
-  // Verify OTP
-  Future<void> verifyOtp({required String phone, required String otp}) async {
-    await _supabase.auth.verifyOTP(
-      phone: phone,
+  // Verify OTP and sign in user
+  Future<User> verifyOtp({required String phone, required String otp}) async {
+    final normalizedPhone = _normalizePhone(phone);
+
+    final response = await _supabase.auth.verifyOTP(
+      phone: normalizedPhone,
       token: otp,
       type: OtpType.sms,
     );
+
+    final authUser = response.user ?? _supabase.auth.currentUser;
+    if (authUser == null) throw Exception('OTP verification failed');
+
+    return _loadAndCacheUserFromAuthUserId(authUser.id);
   }
 }
